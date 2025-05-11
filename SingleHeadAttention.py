@@ -27,9 +27,20 @@ class SingleHeadAttention(nn.Module):
         V = self.v_linear(x)
 
         d_k = self.embed_dim
+        """
+        It swaps the last two dimensions of a tensor.
+        Typical shape of Q and K: [batch_size, num_heads, seq_len, head_dim]
+        To compute Q @ Kᵀ, we need Kᵀ to be of shape [batch_size, num_heads, head_dim, seq_len]
+        So we do .transpose(-1, -2) to flip seq_len and head_dim
+        """
         scores = torch.matmul(Q, K.transpose(-1, -2)) / math.sqrt(d_k)
         if mask is not None:
+            # Softmax is used on scores. When a score is -inf, softmax gives it a probability of 0.
             scores = scores.masked_fill(mask == 0, float('-inf'))
+
+        # Softmax along last dimension (columns)
+        # Attention scores: [batch, heads, query_len, key_len] → softmax over the keys (key_len, so dim=-1)
+        # the key_len is same as seq_len
         attn_weights = F.softmax(scores, dim=-1)
         attn_weights = self.dropout(attn_weights)
 
@@ -47,6 +58,12 @@ if __name__ == '__main__':
     x = torch.randn(batch_size, seq_len, embed_dim)
 
     # Causal mask: allow attention only to current and previous tokens
+    """
+    Do you need to match the batch size?
+    Usually not, because PyTorch supports broadcasting.
+    When you apply this mask to attention scores of shape [batch_size, num_heads, seq_len, seq_len], 
+    PyTorch can broadcast the [1, seq_len, seq_len] mask across batch_size and num_heads.
+    """
     causal_mask = torch.tril(torch.ones(seq_len, seq_len)).unsqueeze(0)  # (1, seq_len, seq_len)
 
     attn = SingleHeadAttention(embed_dim)
