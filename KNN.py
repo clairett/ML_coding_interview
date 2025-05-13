@@ -20,3 +20,19 @@ class KNearestNeighbors:
         most_common = Counter(k_labels).most_common(1)
         # the most_common return a tuple
         return most_common[0][0]
+
+# Example usage:
+if __name__ == "__main__":
+    # Sample training data
+    X_train = [[1, 2], [2, 3], [3, 4], [6, 7], [7, 8]]
+    y_train = [0, 0, 0, 1, 1]
+    
+    # Create and train classifier
+    knn = KNearestNeighbors(k=3)
+    knn.fit(X_train, y_train)
+    
+    # Sample test data
+    X_test = [[2, 2], [6, 6]]
+    predictions = knn.predict(X_test)
+    
+    print("Predictions:", predictions)
