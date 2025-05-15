@@ -39,6 +39,7 @@ class SingleHeadAttention(nn.Module):
             scores = scores.masked_fill(mask == 0, float('-inf'))
 
         # Softmax along last dimension (columns)
+        # the dim=-1 argument tells the softmax function which dimension to apply the softmax operation over.
         # Attention scores: [batch, heads, query_len, key_len] → softmax over the keys (key_len, so dim=-1)
         # the key_len is same as seq_len
         attn_weights = F.softmax(scores, dim=-1)
