@@ -2,52 +2,51 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-class DCN(nn.Module):
-    def __init__(self, input_dim, hidden_dim, cross_layers, output_dim=1):
+class CrossLayer(nn.Module):
+    def __init__(self, input_dim):
         super().__init__()
+        self.weight = nn.Parameter(torch.randn(input_dim, 1))
+        self.bias = nn.Parameter(torch.zeros(input_dim))
 
-        # deep network, simple MLP
-        self.deep_network = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU()
-        )
-        # Cross network layers (Cross layers)
-        self.cross_weights = nn.ParameterList([nn.Parameter(torch.randn(input_dim, 1)) for _ in range(cross_layers)])
-        self.cross_biases = nn.ParameterList([nn.Parameter(torch.zeros(input_dim)) for _ in range(cross_layers)])
-        self.cross_layers = cross_layers
+    def forward(self, x_0, x_l):
+        x_l_proj = x_l @ self.weight
+        x_cross = x_0 * x_l_proj + self.bias + x_l
+        return x_cross
+    
+class DCN(nn.Module):
+    def __init__(self, input_dim, cross_layers=3, hidden_units=[512, 256]):
+        super().__init__()
+        self.cross_network = nn.ModuleList([CrossLayer(input_dim) for _ in range(cross_layers)])
 
-        self.output_layer = nn.Linear(input_dim + hidden_dim, output_dim)
+        deep_layers = []
+        hidden_dim = input_dim
+        for units in hidden_units:
+            deep_layers.append(nn.Linear(hidden_dim, units))
+            deep_layers.append(nn.ReLU())
+            hidden_dim = units
+        self.deep_network = nn.Sequential(*deep_layers)
+        
+        final_dim = input_dim + hidden_dim
+        self.output_layer = nn.Linear(final_dim, 1)
 
     def forward(self, x):
-        x0 = x
-        xl = x #(B, input_dim)
-        for i in range(self.cross_layers):
-            xw = xl @ self.cross_weights[i] + self.cross_biases[i] # (B, 1)
-            print(f"xw shape: {xw.shape}")
-            cross = x0 * xw  # element-wise multiplication with broadcast
-            print(f"cross shape: {cross.shape}")
-            xl = cross + xl
-        cross_out = xl
-
-        deep_out = self.deep_network(x)
-
-        combined_out = torch.cat([cross_out, deep_out], dim=-1)
-        out = self.output_layer(combined_out)
-        return out.squeeze(-1) #(batch, )
-
+        x_0, x_cross = x, x
+        for layer in self.cross_network:
+            x_cross = layer(x_0, x_cross)
+        
+        x_deep = self.deep_network(x)
+        x_concat = torch.cat([x_cross, x_deep], dim=-1)
+        out = self.output_layer(x_concat)
+        # return torch.sigmoid(out)
+        return out.squeeze(-1)
 
 
 # Example usage
-input_dim = 10  # Number of features
-hidden_dim = 64  # Hidden units in deep network
-cross_layers = 3  # Number of cross layers
+input_dim = 10
+cross_layers = 3
 
 # Initialize the DCN model
-model = DCN(input_dim=input_dim, hidden_dim=hidden_dim, cross_layers=cross_layers)
+model = DCN(input_dim=input_dim, cross_layers=cross_layers)
 
 # Sample data: Let's create a random input tensor of size (batch_size, input_dim)
 batch_size = 32
