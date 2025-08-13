@@ -18,7 +18,7 @@ class KNearestNeighbors:
         distances = np.linalg.norm(self.X_train - x, axis=1)
         
         k_indices = np.argsort(distances)[:self.k]
-        k_labels = self.y[k_indices]
+        k_labels = self.y_train[k_indices]
         most_common = Counter(k_labels).most_common(1)
         # the most_common return a tuple
         return most_common[0][0]
